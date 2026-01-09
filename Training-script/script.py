@@ -11,6 +11,7 @@ import joblib
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
+from sklearn.tree import DecisionTreeRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 
 
@@ -46,14 +47,15 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 
 # ============================================
-# Define Models
+# Define 5 Models
 # ============================================
 
 models = {
     "LinearRegression": LinearRegression(),
     "Ridge_alpha_1.0": Ridge(alpha=1.0),
     "Lasso_alpha_0.1": Lasso(alpha=0.1),
-    "ElasticNet_alpha_0.1_l1_0.5": ElasticNet(alpha=0.1, l1_ratio=0.5)
+    "ElasticNet_alpha_0.1_l1_0.5": ElasticNet(alpha=0.1, l1_ratio=0.5),
+    "DecisionTree_depth_5": DecisionTreeRegressor(max_depth=5, random_state=42)
 }
 
 
@@ -66,13 +68,13 @@ all_results = {}
 for model_name, model in models.items():
     print(f"\nTraining {model_name}...")
 
-    # Train
+    # Train model
     model.fit(X_train, y_train)
 
     # Predict
     y_pred = model.predict(X_test)
 
-    # Metrics
+    # Evaluate
     mse = mean_squared_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
 
@@ -97,4 +99,4 @@ results_path = os.path.join(OUTPUT_DIR, "results.json")
 with open(results_path, "w") as f:
     json.dump(all_results, f, indent=4)
 
-print("\nAll models and metrics saved in 'outputs/' folder")
+print("\nAll 5 models and metrics saved in 'outputs/' folder")
