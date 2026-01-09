@@ -36,7 +36,7 @@ jobs:
     # 4️⃣ Run training script
     - name: Run training script
       run: |
-        python ${{github.workspace}}/train.py
+        python Training-script/script.py
 
     # 5️⃣ Write results to Job Summary
     - name: Write evaluation summary
