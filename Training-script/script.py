@@ -16,6 +16,18 @@ from sklearn.metrics import mean_squared_error, r2_score
 
 
 # ============================================
+# Path handling (GitHub Actions safe)
+# ============================================
+
+# Absolute path of current script
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Outputs directory path
+OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+
+# ============================================
 # Loading the Dataset
 # ============================================
 
@@ -80,11 +92,9 @@ print("R² Score:", r2)
 # Save Model and Metrics
 # ============================================
 
-# Create outputs directory
-os.makedirs("outputs", exist_ok=True)
-
 # Save trained model
-joblib.dump(model, "outputs/model.pkl")
+model_path = os.path.join(OUTPUT_DIR, "model.pkl")
+joblib.dump(model, model_path)
 
 # Save metrics to JSON
 results = {
@@ -92,7 +102,8 @@ results = {
     "R2_Score": r2
 }
 
-with open("outputs/results.json", "w") as f:
+results_path = os.path.join(OUTPUT_DIR, "results.json")
+with open(results_path, "w") as f:
     json.dump(results, f, indent=4)
 
 print("\nModel and metrics saved in 'outputs/' folder")
