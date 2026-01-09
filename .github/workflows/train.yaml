@@ -12,6 +12,10 @@ jobs:
   train-model:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: .
+
     steps:
     # 1️⃣ Checkout repository
     - name: Checkout repository
@@ -39,7 +43,7 @@ jobs:
       run: |
         echo "## 📊 Model Evaluation Summary" >> $GITHUB_STEP_SUMMARY
         echo "**Name:** Abhishek Akash" >> $GITHUB_STEP_SUMMARY
-        echo "**Roll Number:** ]2022BCS0002" >> $GITHUB_STEP_SUMMARY
+        echo "**Roll Number:** 2022BCS0002" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Metrics" >> $GITHUB_STEP_SUMMARY
         cat outputs/results.json >> $GITHUB_STEP_SUMMARY
