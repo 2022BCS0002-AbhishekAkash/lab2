@@ -2,6 +2,3 @@ ucimlrepo
 pandas
 numpy
 scikit-learn
-
-
-Model- Lasso, alpha-0.1, testsplit-0.2, pre-processing – scalar
