@@ -2,7 +2,6 @@
 # Task 1: Dataset Understanding
 # ============================================
 
-from ucimlrepo import fetch_ucirepo
 import pandas as pd
 import numpy as np
 import os
@@ -28,10 +27,11 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # Loading the Dataset
 # ============================================
 
-wine_quality = fetch_ucirepo(id=186)
+from sklearn.datasets import load_wine
 
-X = wine_quality.data.features
-y = wine_quality.data.targets
+data = load_wine()
+X = data.data
+y = data.target
 
 print("Feature shape:", X.shape)
 print("Target shape:", y.shape)
