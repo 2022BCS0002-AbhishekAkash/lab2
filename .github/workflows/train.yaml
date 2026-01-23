@@ -9,6 +9,9 @@ jobs:
   train:
     runs-on: ubuntu-latest
 
+    outputs:
+      improved: ${{ steps.compare.outputs.improved }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,10 +30,6 @@ jobs:
         run: |
           python train.py
 
-      - name: List files after training
-        run: |
-          ls -R
-
       - name: Upload model artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -43,8 +42,32 @@ jobs:
           name: metrics
           path: outputs/results.json
 
+      - name: Compare metrics
+        id: compare
+        run: |
+          BEST_R2=$(jq '[.[] | .r2] | max' outputs/results.json)
+          BEST_MSE=$(jq '[.[] | .mse] | min' outputs/results.json)
+
+          echo "New BEST_R2=$BEST_R2"
+          echo "New BEST_MSE=$BEST_MSE"
+          echo "OLD_R2=${{ vars.BEST_R2 }}"
+          echo "OLD_MSE=${{ vars.BEST_MSE }}"
+
+          if (( $(echo "$BEST_R2 > ${{ vars.BEST_R2 }}" | bc -l) )) && \
+             (( $(echo "$BEST_MSE < ${{ vars.BEST_MSE }}" | bc -l) )); then
+            echo "improved=true" >> $GITHUB_OUTPUT
+          else
+            echo "improved=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Metric not improved
+        if: steps.compare.outputs.improved == 'false'
+        run: |
+          echo "2022BCS0002 ---- Metric did not improve"
+
   deploy:
     needs: train
+    if: needs.train.outputs.improved == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -61,47 +84,16 @@ jobs:
         with:
           name: metrics
 
-      - name: List files after download
-        run: |
-          ls -R
-
-      - name: Read metrics and compare
-        id: metrics
-        run: |
-          BEST_R2=$(jq '[.[] | .r2] | max' results.json)
-          BEST_MSE=$(jq '[.[] | .mse] | min' results.json)
-
-          echo "New BEST_R2=$BEST_R2"
-          echo "New BEST_MSE=$BEST_MSE"
-
-          echo "OLD_R2=${{ vars.BEST_R2 }}"
-          echo "OLD_MSE=${{ vars.BEST_MSE }}"
-
-          if (( $(echo "$BEST_R2 > ${{ vars.BEST_R2 }}" | bc -l) )) && \
-             (( $(echo "$BEST_MSE < ${{ vars.BEST_MSE }}" | bc -l) )); then
-            echo "improved=true" >> $GITHUB_OUTPUT
-          else
-            echo "improved=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Metric not improved
-        if: steps.metrics.outputs.improved == 'false'
-        run: |
-          echo "2022BCS0002 ---- Metric did not improve"
-
       - name: Login to Docker Hub
-        if: steps.metrics.outputs.improved == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Build Docker image
-        if: steps.metrics.outputs.improved == 'true'
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/wine-inference:latest .
 
       - name: Push Docker image
-        if: steps.metrics.outputs.improved == 'true'
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/wine-inference:latest
