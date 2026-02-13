@@ -37,27 +37,36 @@ pipeline {
             }
         }
 
-        stage('Read Accuracy') {
+        stage('Read Metric (Best R2)') {
             steps {
                 script {
                     def metrics = readJSON file: 'outputs/results.json'
-                    env.CURRENT_ACC = metrics.accuracy.toString()
-                    echo "Current Accuracy: ${env.CURRENT_ACC}"
+
+                    def bestR2 = -9999
+
+                    metrics.each { modelName, values ->
+                        if (values.r2 != null) {
+                            bestR2 = Math.max(bestR2, values.r2 as Double)
+                        }
+                    }
+
+                    env.CURRENT_R2 = bestR2.toString()
+                    echo "Best R2 Score (Current Run): ${env.CURRENT_R2}"
                 }
             }
         }
 
-        stage('Compare Accuracy') {
+        stage('Compare With Best Metric') {
             steps {
                 script {
-                    withCredentials([string(credentialsId: 'best-accuracy', variable: 'BEST_ACC')]) {
+                    withCredentials([string(credentialsId: 'best-accuracy', variable: 'BEST_R2')]) {
 
-                        echo "Best Accuracy Stored in Jenkins: ${BEST_ACC}"
+                        echo "Best R2 Stored in Jenkins: ${BEST_R2}"
 
-                        if (env.CURRENT_ACC.toFloat() <= BEST_ACC.toFloat()) {
-                            error("❌ 2022BCS0002 ---- Accuracy did not improve. Stopping pipeline.")
+                        if (env.CURRENT_R2.toFloat() <= BEST_R2.toFloat()) {
+                            error("❌ 2022BCS0002 ---- R2 Score did not improve. Stopping pipeline.")
                         } else {
-                            echo "✅ Accuracy improved. Proceeding to Docker build + push."
+                            echo "✅ R2 Score improved. Proceeding to Docker build + push."
                         }
                     }
                 }
