@@ -42,11 +42,15 @@ pipeline {
                 script {
                     def metrics = readJSON file: 'outputs/results.json'
 
-                    def bestR2 = -9999
+                    double bestR2 = -9999.0
 
                     metrics.each { modelName, values ->
-                        if (values.r2 != null) {
-                            bestR2 = Math.max(bestR2, values.r2 as Double)
+                        if (values != null && values.r2 != null) {
+                            double r2Value = values.r2 as Double
+
+                            if (r2Value > bestR2) {
+                                bestR2 = r2Value
+                            }
                         }
                     }
 
@@ -61,7 +65,7 @@ pipeline {
                 script {
                     withCredentials([string(credentialsId: 'best-accuracy', variable: 'BEST_R2')]) {
 
-                        echo "Best R2 Stored in Jenkins: ${BEST_R2}"
+                        echo "Best R2 Stored in Jenkins: (hidden)"
 
                         if (env.CURRENT_R2.toFloat() <= BEST_R2.toFloat()) {
                             error("❌ 2022BCS0002 ---- R2 Score did not improve. Stopping pipeline.")
