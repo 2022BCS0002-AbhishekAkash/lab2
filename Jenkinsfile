@@ -4,6 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME     = "abhishekakash/wine_predict_2022bcs0002:latest"
         CONTAINER_NAME = "wine-api-test"
+        DOCKER_NETWORK = "mlops-net"
     }
 
     stages {
@@ -24,7 +25,8 @@ pipeline {
         stage('Run Container') {
             steps {
                 sh """
-                docker run -d --network host \
+                docker run -d \
+                --network ${DOCKER_NETWORK} \
                 --name ${CONTAINER_NAME} \
                 ${IMAGE_NAME}
                 """
@@ -34,20 +36,16 @@ pipeline {
         stage('Wait for Service Readiness') {
             steps {
                 script {
-                    echo "Checking API readiness..."
-
                     timeout(time: 1, unit: 'MINUTES') {
                         waitUntil {
                             def status = sh(
-                                script: "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/",
+                                script: "curl -s -o /dev/null -w '%{http_code}' http://${CONTAINER_NAME}:8000/",
                                 returnStdout: true
                             ).trim()
 
                             return (status == "200")
                         }
                     }
-
-                    echo "API is ready ✅"
                 }
             }
         }
@@ -56,21 +54,17 @@ pipeline {
             steps {
                 sh """
                 RESPONSE=\$(curl -s -w "\\n%{http_code}" \
-                -X POST http://localhost:8000/predict \
+                -X POST http://${CONTAINER_NAME}:8000/predict \
                 -H "Content-Type: application/json" \
                 -d @valid_input.json)
 
                 BODY=\$(echo "\$RESPONSE" | head -n 1)
                 STATUS=\$(echo "\$RESPONSE" | tail -n 1)
 
-                if [ "\$STATUS" != "200" ]; then
-                    exit 1
-                fi
+                if [ "\$STATUS" != "200" ]; then exit 1; fi
 
                 echo "\$BODY" | grep prediction > /dev/null
-                if [ \$? -ne 0 ]; then
-                    exit 1
-                fi
+                if [ \$? -ne 0 ]; then exit 1; fi
                 """
             }
         }
@@ -79,15 +73,13 @@ pipeline {
             steps {
                 sh """
                 RESPONSE=\$(curl -s -w "\\n%{http_code}" \
-                -X POST http://localhost:8000/predict \
+                -X POST http://${CONTAINER_NAME}:8000/predict \
                 -H "Content-Type: application/json" \
                 -d @invalid_input.json)
 
                 STATUS=\$(echo "\$RESPONSE" | tail -n 1)
 
-                if [ "\$STATUS" = "200" ]; then
-                    exit 1
-                fi
+                if [ "\$STATUS" = "200" ]; then exit 1; fi
                 """
             }
         }
@@ -100,5 +92,3 @@ pipeline {
         }
     }
 }
-
-
