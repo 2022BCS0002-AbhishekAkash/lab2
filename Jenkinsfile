@@ -26,7 +26,7 @@ pipeline {
         stage('Run Container') {
             steps {
                 sh """
-                docker run -d -p ${PORT}:8000 \
+                docker run -d --network host \
                 --name ${CONTAINER_NAME} \
                 ${IMAGE_NAME}
                 """
