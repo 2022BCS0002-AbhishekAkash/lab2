@@ -26,6 +26,7 @@ pipeline {
                 sh """
                 docker run -d \
                 --name ${CONTAINER_NAME} \
+                -p 8000:8000 \
                 ${IMAGE_NAME}
                 """
             }
@@ -34,16 +35,7 @@ pipeline {
         stage('Wait for Service Readiness') {
             steps {
                 script {
-                    timeout(time: 1, unit: 'MINUTES') {
-                        waitUntil {
-                            def status = sh(
-                                script: "docker exec ${CONTAINER_NAME} curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/",
-                                returnStdout: true
-                            ).trim()
-
-                            return (status == "200")
-                        }
-                    }
+                    sleep 10
                 }
             }
         }
@@ -51,18 +43,34 @@ pipeline {
         stage('Send Valid Inference Request') {
             steps {
                 sh """
-                RESPONSE=\$(docker exec ${CONTAINER_NAME} curl -s -w "\\n%{http_code}" \
-                -X POST http://localhost:8000/predict \
-                -H "Content-Type: application/json" \
-                -d @valid_input.json)
+                python - <<EOF
+import requests
+import sys
 
-                BODY=\$(echo "\$RESPONSE" | head -n 1)
-                STATUS=\$(echo "\$RESPONSE" | tail -n 1)
+url = "http://localhost:8000/predict"
 
-                if [ "\$STATUS" != "200" ]; then exit 1; fi
+data = {
+    "fixed_acidity": 7.4,
+    "volatile_acidity": 0.7,
+    "citric_acid": 0.0,
+    "residual_sugar": 1.9,
+    "chlorides": 0.076,
+    "free_sulfur_dioxide": 11.0,
+    "total_sulfur_dioxide": 34.0,
+    "density": 0.9978,
+    "pH": 3.51,
+    "sulphates": 0.56,
+    "alcohol": 9.4
+}
 
-                echo "\$BODY" | grep prediction > /dev/null
-                if [ \$? -ne 0 ]; then exit 1; fi
+r = requests.post(url, json=data)
+
+if r.status_code != 200:
+    sys.exit(1)
+
+if "prediction" not in r.json():
+    sys.exit(1)
+EOF
                 """
             }
         }
@@ -70,14 +78,21 @@ pipeline {
         stage('Send Invalid Request') {
             steps {
                 sh """
-                RESPONSE=\$(docker exec ${CONTAINER_NAME} curl -s -w "\\n%{http_code}" \
-                -X POST http://localhost:8000/predict \
-                -H "Content-Type: application/json" \
-                -d @invalid_input.json)
+                python - <<EOF
+import requests
+import sys
 
-                STATUS=\$(echo "\$RESPONSE" | tail -n 1)
+url = "http://localhost:8000/predict"
 
-                if [ "\$STATUS" = "200" ]; then exit 1; fi
+data = {
+    "fixed_acidity": "wrong"
+}
+
+r = requests.post(url, json=data)
+
+if r.status_code == 200:
+    sys.exit(1)
+EOF
                 """
             }
         }
