@@ -4,6 +4,8 @@ pipeline {
     environment {
         IMAGE_NAME     = "abhishekakash/wine_predict_2022bcs0002:latest"
         CONTAINER_NAME = "wine-api-test"
+        HOST_ADDR      = "host.docker.internal"
+        PORT           = "8000"
     }
 
     stages {
@@ -24,9 +26,8 @@ pipeline {
         stage('Run Container') {
             steps {
                 sh """
-                docker run -d \
+                docker run -d -p ${PORT}:8000 \
                 --name ${CONTAINER_NAME} \
-                -p 8000:8000 \
                 ${IMAGE_NAME}
                 """
             }
@@ -43,34 +44,21 @@ pipeline {
         stage('Send Valid Inference Request') {
             steps {
                 sh """
-                python - <<EOF
-import requests
-import sys
+                RESPONSE=\$(curl -s -w "\\n%{http_code}" \
+                -X POST http://${HOST_ADDR}:${PORT}/predict \
+                -H "Content-Type: application/json" \
+                -d @valid_input.json)
 
-url = "http://localhost:8000/predict"
+                BODY=\$(echo "\$RESPONSE" | head -n 1)
+                STATUS=\$(echo "\$RESPONSE" | tail -n 1)
 
-data = {
-    "fixed_acidity": 7.4,
-    "volatile_acidity": 0.7,
-    "citric_acid": 0.0,
-    "residual_sugar": 1.9,
-    "chlorides": 0.076,
-    "free_sulfur_dioxide": 11.0,
-    "total_sulfur_dioxide": 34.0,
-    "density": 0.9978,
-    "pH": 3.51,
-    "sulphates": 0.56,
-    "alcohol": 9.4
-}
+                echo "Status: \$STATUS"
+                echo "Body: \$BODY"
 
-r = requests.post(url, json=data)
+                if [ "\$STATUS" != "200" ]; then exit 1; fi
 
-if r.status_code != 200:
-    sys.exit(1)
-
-if "prediction" not in r.json():
-    sys.exit(1)
-EOF
+                echo "\$BODY" | grep prediction > /dev/null
+                if [ \$? -ne 0 ]; then exit 1; fi
                 """
             }
         }
@@ -78,21 +66,14 @@ EOF
         stage('Send Invalid Request') {
             steps {
                 sh """
-                python - <<EOF
-import requests
-import sys
+                RESPONSE=\$(curl -s -w "\\n%{http_code}" \
+                -X POST http://${HOST_ADDR}:${PORT}/predict \
+                -H "Content-Type: application/json" \
+                -d @invalid_input.json)
 
-url = "http://localhost:8000/predict"
+                STATUS=\$(echo "\$RESPONSE" | tail -n 1)
 
-data = {
-    "fixed_acidity": "wrong"
-}
-
-r = requests.post(url, json=data)
-
-if r.status_code == 200:
-    sys.exit(1)
-EOF
+                if [ "\$STATUS" = "200" ]; then exit 1; fi
                 """
             }
         }
