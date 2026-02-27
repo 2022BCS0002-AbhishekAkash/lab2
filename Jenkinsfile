@@ -28,8 +28,20 @@ pipeline {
         stage('Wait for Service Readiness') {
             steps {
                 script {
-                    echo "Waiting for API to start..."
-                    sleep 15
+                    echo "Checking API readiness..."
+
+                    timeout(time: 1, unit: 'MINUTES') {
+                        waitUntil {
+                            def status = sh(
+                                script: "curl -s -o /dev/null -w '%{http_code}' http://localhost:${PORT}/",
+                                returnStdout: true
+                            ).trim()
+
+                            return (status == "200")
+                        }
+                    }
+
+                    echo "API is ready ✅"
                 }
             }
         }
@@ -37,7 +49,7 @@ pipeline {
         stage('Send Valid Inference Request') {
             steps {
                 sh '''
-                echo "Sending valid request..."
+                echo "Sending VALID inference request..."
 
                 RESPONSE=$(curl -s -w "\\n%{http_code}" \
                 -X POST http://localhost:8000/predict \
@@ -55,7 +67,13 @@ pipeline {
                     exit 1
                 fi
 
-                echo "$BODY" | grep prediction
+                echo "$BODY" | grep prediction > /dev/null
+                if [ $? -ne 0 ]; then
+                    echo "❌ 'prediction' field missing"
+                    exit 1
+                fi
+
+                echo "Valid request passed ✅"
                 '''
             }
         }
@@ -63,7 +81,7 @@ pipeline {
         stage('Send Invalid Request') {
             steps {
                 sh '''
-                echo "Sending invalid request..."
+                echo "Sending INVALID inference request..."
 
                 RESPONSE=$(curl -s -w "\\n%{http_code}" \
                 -X POST http://localhost:8000/predict \
@@ -78,6 +96,8 @@ pipeline {
                     echo "❌ Invalid request should NOT succeed"
                     exit 1
                 fi
+
+                echo "Invalid request handled correctly ✅"
                 '''
             }
         }
@@ -92,10 +112,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Inference Validation Pipeline PASSED"
+            echo "🎉 Inference Validation Pipeline PASSED"
         }
         failure {
-            echo "❌ Inference Validation Pipeline FAILED"
+            echo "🚨 Inference Validation Pipeline FAILED"
         }
         always {
             sh "docker stop ${CONTAINER_NAME} || true"
