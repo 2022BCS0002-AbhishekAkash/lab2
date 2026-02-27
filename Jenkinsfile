@@ -4,7 +4,6 @@ pipeline {
     environment {
         IMAGE_NAME     = "abhishekakash/wine_predict_2022bcs0002:latest"
         CONTAINER_NAME = "wine-api-test"
-        DOCKER_NETWORK = "mlops-net"
     }
 
     stages {
@@ -26,7 +25,6 @@ pipeline {
             steps {
                 sh """
                 docker run -d \
-                --network ${DOCKER_NETWORK} \
                 --name ${CONTAINER_NAME} \
                 ${IMAGE_NAME}
                 """
@@ -39,7 +37,7 @@ pipeline {
                     timeout(time: 1, unit: 'MINUTES') {
                         waitUntil {
                             def status = sh(
-                                script: "curl -s -o /dev/null -w '%{http_code}' http://${CONTAINER_NAME}:8000/",
+                                script: "docker exec ${CONTAINER_NAME} curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/",
                                 returnStdout: true
                             ).trim()
 
@@ -53,8 +51,8 @@ pipeline {
         stage('Send Valid Inference Request') {
             steps {
                 sh """
-                RESPONSE=\$(curl -s -w "\\n%{http_code}" \
-                -X POST http://${CONTAINER_NAME}:8000/predict \
+                RESPONSE=\$(docker exec ${CONTAINER_NAME} curl -s -w "\\n%{http_code}" \
+                -X POST http://localhost:8000/predict \
                 -H "Content-Type: application/json" \
                 -d @valid_input.json)
 
@@ -72,8 +70,8 @@ pipeline {
         stage('Send Invalid Request') {
             steps {
                 sh """
-                RESPONSE=\$(curl -s -w "\\n%{http_code}" \
-                -X POST http://${CONTAINER_NAME}:8000/predict \
+                RESPONSE=\$(docker exec ${CONTAINER_NAME} curl -s -w "\\n%{http_code}" \
+                -X POST http://localhost:8000/predict \
                 -H "Content-Type: application/json" \
                 -d @invalid_input.json)
 
@@ -86,8 +84,8 @@ pipeline {
 
         stage('Stop Container') {
             steps {
-                sh "docker stop ${CONTAINER_NAME} || true"
-                sh "docker rm ${CONTAINER_NAME} || true"
+                sh "docker stop ${CONTAINER_NAME}"
+                sh "docker rm ${CONTAINER_NAME}"
             }
         }
     }
