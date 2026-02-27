@@ -5,14 +5,13 @@ import numpy as np
 
 app = FastAPI()
 
-# Load model
+# Load trained model
 model = joblib.load("outputs/model.pkl")
 
 NAME = "Abhishek Akash"
 ROLL_NO = "2022BCS0002"
 
 
-# Define request body schema
 class WineInput(BaseModel):
     fixed_acidity: float
     volatile_acidity: float
@@ -29,7 +28,7 @@ class WineInput(BaseModel):
 
 @app.get("/")
 def home():
-    return {"message": "Wine Quality Prediction API is running"}
+    return {"message": "API is running"}
 
 
 @app.post("/predict")
@@ -50,12 +49,12 @@ def predict(data: WineInput):
         ]])
 
         prediction = model.predict(features)
-        wine_quality = int(prediction.flatten()[0])
+        result = int(prediction[0])
 
         return {
             "name": NAME,
             "roll_no": ROLL_NO,
-            "prediction": wine_quality
+            "prediction": result
         }
 
     except Exception as e:

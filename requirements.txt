@@ -1,8 +1,5 @@
-numpy
-pandas
-scikit-learn
-joblib
-
-
 fastapi
 uvicorn
+scikit-learn
+joblib
+numpy
